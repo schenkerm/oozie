@@ -344,7 +344,7 @@ public class LauncherMapper<K1, V1, K2, V2> implements Mapper<K1, V1, K2, V2>, R
                     printContentsOfCurrentDir();
 
                     System.out.println();
-                    System.out.println("Oozie Java/Map-Reduce/Pig action launcher-job configuration");
+                    System.out.println("Oozie Java/Map-Reduce/Pig/Hive/Jaql action launcher-job configuration");
                     System.out.println("=================================================================");
                     System.out.println("Workflow job id   : " + System.getProperty("oozie.job.id"));
                     System.out.println("Workflow action id: " + System.getProperty("oozie.action.id"));

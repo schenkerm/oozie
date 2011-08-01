@@ -98,6 +98,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.ibm.jaql</groupId>
+            <artifactId>jaql</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.yahoo.oozie</groupId>
             <artifactId>oozie-sharelib</artifactId>
             <scope>provided</scope>

@@ -331,6 +331,12 @@
                 <artifactId>hive-cli</artifactId>
                 <version>0.6.0-CDH3B4-SNAPSHOT</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.ibm.jaql</groupId>
+                <artifactId>jaql</artifactId>
+                <version>0.5.2</version>
+            </dependency>
             
             <dependency>
                 <groupId>org.slf4j</groupId>
