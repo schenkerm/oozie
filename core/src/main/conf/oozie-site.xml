@@ -25,7 +25,7 @@
 
     <property>
         <name>oozie.service.SchemaService.wf.ext.schemas</name>
-        <value>hive-action-0.1.xsd,jaql-action-0.1.xsd,</value>
+        <value>hive-action-0.1.xsd,jaql-action-0.1.xsd</value>
     </property>
 
 <!--

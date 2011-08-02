@@ -14,8 +14,8 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:hive="uri:oozie:hive-action:0.2" elementFormDefault="qualified"
-           targetNamespace="uri:oozie:hive-action:0.2">
+           xmlns:hive="uri:oozie:hive-action:0.1" elementFormDefault="qualified"
+           targetNamespace="uri:oozie:hive-action:0.1">
 
     <xs:element name="hive" type="hive:ACTION"/>
 

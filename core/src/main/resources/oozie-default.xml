@@ -932,7 +932,7 @@
 
      <property>
         <name>oozie.service.SchemaService.wf.ext.schemas</name>
-        <value>oozie-sla-0.1.xsd</value>
+        <value>oozie-sla-0.1.xsd,hive-action-0.1.xsd,jaql-action-0.1.xsd</value>
         <description>
             Schemas for additional actions types.
 
@@ -1012,7 +1012,7 @@
 
     <property>
         <name>oozie.service.ActionService.executor.ext.classes</name>
-        <value> </value>
+        <value>org.apache.oozie.action.hadoop.HiveActionExecutor,org.apache.oozie.action.hadoop.JaqlActionExecutor</value>
         <description>
             List of ActionExecutors extension classes (separated by commas). Only action types with associated
             executors can be used in workflows. This property is a convenience property to add extensions to the built
