@@ -14,8 +14,13 @@
  */
 package org.apache.oozie.command.wf;
 
+import java.io.IOException;
 import java.util.List;
 
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobID;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.oozie.WorkflowJobBean;
 import org.apache.oozie.action.decision.DecisionActionExecutor;
 import org.apache.oozie.client.WorkflowAction;
@@ -94,17 +99,40 @@ public class JobCommand extends WorkflowCommand<WorkflowJobBean> {
             return 1.0f;
         }
         List<WorkflowAction> actions = wf.getActions();
-        int doneActions = 0;
+        float doneActions = 0;
         for (WorkflowAction action : actions) {
             // Skip decision nodes, note start, kill, end, fork/join will not have action entry.
             if (action.getType().equals(DecisionActionExecutor.ACTION_TYPE)) {
                 continue;
             }
             if (action.getStatus() == WorkflowAction.Status.OK || action.getStatus() == WorkflowAction.Status.DONE) {
-                doneActions++;
+                doneActions = doneActions + 1.0f;
+            }
+            else if (action.getStatus() == WorkflowAction.Status.RUNNING) {
+                // Incorporate m/r job progress info if it's m/r action.
+                if (action.getType().equals("map-reduce")) {
+                    try {
+                        String externalId = action.getExternalId();
+                        String trackerUri = action.getTrackerUri();
+                        JobConf conf = new JobConf();
+                        conf.set("mapred.job.tracker", trackerUri);
+                        JobID id = JobID.forName(externalId);
+                        JobClient jobClient = new JobClient(conf);
+                        RunningJob job = jobClient.getJob(id);
+
+                        float mapProgress = job.mapProgress();
+                        float reduceProgress = job.reduceProgress();
+                        // For now simply take an average of map and reduce progress
+                        float overallProgress = (mapProgress + reduceProgress) / 2.0f;
+                        doneActions += overallProgress / executionPathLengthEstimate;
+                    }
+                    catch (Exception ex) {
+                        // noop
+                    }
+                }
             }
         }
 
-        return (doneActions * 1.0f) / executionPathLengthEstimate;
+        return doneActions / executionPathLengthEstimate;
     }
 }
