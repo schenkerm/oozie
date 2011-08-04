@@ -69,6 +69,17 @@ public class CoordJobCommand extends CoordinatorCommand<CoordinatorJobBean> {
         else {
             coord.setActions(null);
         }
+
+        // compute and set job progress
+        int totalActionNumber = coord.getTotalActionNumber();
+        if (totalActionNumber == 0) {
+            coord.setProgress(1.0f);
+        }
+        else {
+            int lastActionNumber = coord.getLastActionNumber();
+            coord.setProgress(lastActionNumber * 1.0f / totalActionNumber);
+        }
+
         return coord;
     }
 

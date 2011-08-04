@@ -182,4 +182,9 @@ public interface CoordinatorJob {
      * @return the list of coordinator actions.
      */
     List<CoordinatorAction> getActions();
+    
+    /**
+     * Return the coordinator job progress in %.
+     */
+    float getProgress();
 }

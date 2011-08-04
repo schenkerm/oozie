@@ -643,9 +643,12 @@ public class OozieCLI {
         System.out.println(RULER);
 
         List<CoordinatorAction> actions = coordJob.getActions();
-        System.out.println("Job Name : " + maskIfNull(coordJob.getAppName()));
-        System.out.println("App Path : " + maskIfNull(coordJob.getAppPath()));
-        System.out.println("Status   : " + coordJob.getStatus());
+        System.out.println("Job Name   : " + maskIfNull(coordJob.getAppName()));
+        System.out.println("App Path   : " + maskIfNull(coordJob.getAppPath()));
+        System.out.println("Status     : " + coordJob.getStatus());
+        if (coordJob.getProgress() >= 0) { // -1.0f means no progress is available, therefore do not display.
+            System.out.printf("%% Complete : %.2f%%\n", coordJob.getProgress() * 100f);
+        }
         System.out.println(RULER);
 
         if (verbose) {

@@ -91,6 +91,11 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
     @Column(name = "last_action_number")
     private int lastActionNumber;
 
+    // total number of actions a coordinator job needs create
+    @Basic
+    @Column(name = "total_action_number")
+    private int totalActionNumber;
+
     @Transient
     private Date nextMaterializedTime;
 
@@ -111,6 +116,9 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
 
     @Transient
     private List<? extends JsonCoordinatorAction> actions;
+    
+    @Transient
+    private float progress;
 
     public JsonCoordinatorJob() {
         actions = new ArrayList<JsonCoordinatorAction>();
@@ -139,6 +147,7 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
         group = (String) json.get(JsonTags.COORDINATOR_JOB_GROUP);
         consoleUrl = (String) json.get(JsonTags.COORDINATOR_JOB_CONSOLE_URL);
         actions = JsonCoordinatorAction.fromJSONArray((JSONArray) json.get(JsonTags.COORDINATOR_ACTIONS));
+        progress = JsonUtils.getFloatValue(json, JsonTags.COORDINATOR_JOB_PROGRESS);
     }
 
     @SuppressWarnings("unchecked")
@@ -165,6 +174,7 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
         json.put(JsonTags.COORDINATOR_JOB_GROUP, group);
         json.put(JsonTags.COORDINATOR_JOB_CONSOLE_URL, consoleUrl);
         json.put(JsonTags.COORDINATOR_ACTIONS, JsonCoordinatorAction.toJSONArray(actions));
+        json.put(JsonTags.COORDINATOR_JOB_PROGRESS, progress);
 
         return json;
     }
@@ -360,6 +370,14 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
         return (List) actions;
     }
 
+    public float getProgress() {
+        return progress;
+    }
+
+    public void setProgress(float p) {
+        progress = p;
+    }
+
     /**
      * Convert a coordinator application list into a JSONArray.
      *
@@ -398,5 +416,13 @@ public class JsonCoordinatorJob implements CoordinatorJob, JsonBean {
 
     public void setLastActionNumber(int lastActionNumber) {
         this.lastActionNumber = lastActionNumber;
+    }
+
+    public int getTotalActionNumber() {
+        return totalActionNumber;
+    }
+
+    public void setTotalActionNumber(int totalActionNumber) {
+        this.totalActionNumber = totalActionNumber;
     }
 }

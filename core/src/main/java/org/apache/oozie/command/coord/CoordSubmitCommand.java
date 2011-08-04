@@ -22,11 +22,13 @@ import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.TreeSet;
 
 import javax.xml.transform.stream.StreamSource;
@@ -814,12 +816,32 @@ public class CoordSubmitCommand extends CoordinatorCommand<String> {
         coordJob.setConf(XmlUtils.prettyPrint(conf).toString());
         coordJob.setJobXml(XmlUtils.prettyPrint(eJob).toString());
         coordJob.setLastActionNumber(0);
+        coordJob.setTotalActionNumber(evaluateTotalActionNumber(coordJob));
         coordJob.setLastModifiedTime(new Date());
 
         if (!dryrun) {
             store.insertCoordinatorJob(coordJob);
         }
         return jobId;
+    }
+
+    // evaluate total number of actions a coordinator job needs create
+    private int evaluateTotalActionNumber(CoordinatorJobBean coordJob) {
+        TimeZone appTz = DateUtils.getTimeZone(coordJob.getTimeZone());
+        Calendar start = Calendar.getInstance(appTz);
+        start.setTime(coordJob.getStartTime());        
+        Calendar end = Calendar.getInstance(appTz);
+        end.setTime(coordJob.getEndTime());
+        TimeUnit freqTU = TimeUnit.valueOf(coordJob.getTimeUnitStr());
+        int frequency = coordJob.getFrequency();
+
+        int number = 0;
+        while (start.compareTo(end) < 0) {
+            number ++;
+            start.add(freqTU.getCalendarUnit(), frequency);
+        }
+
+        return number;
     }
 
     /**
