@@ -17,9 +17,10 @@ package org.apache.oozie.action.hadoop;
 import org.apache.pig.Main;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobClient;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.BufferedReader;
@@ -210,6 +211,14 @@ public class PigMain extends LauncherMain {
         }
         System.out.println();
         System.out.flush();
+        
+        LogFileObserver lfo = null;
+        if (ActionEventHandler.isEventHandlingEnabled()) {
+        	// handle events only if enabled
+        	lfo = new LogFileObserver(logFile);
+            lfo.start();
+        }
+
         try {
             runPigJob(arguments.toArray(new String[arguments.size()]));
         }
@@ -234,6 +243,11 @@ public class PigMain extends LauncherMain {
                     throw ex;
                 }
             }
+        } finally {
+        	if (lfo != null) {
+        		lfo.finish();
+        		lfo.join();
+        	}
         }
 
         System.out.println();
@@ -276,13 +290,8 @@ public class PigMain extends LauncherMain {
             String line = br.readLine();
             String separator = "";
             while (line != null) {
-                if (line.contains(JOB_ID_LOG_PREFIX)) {
-                    int jobIdStarts = line.indexOf(JOB_ID_LOG_PREFIX) + JOB_ID_LOG_PREFIX.length();
-                    String jobId = line.substring(jobIdStarts);
-                    int jobIdEnds = jobId.indexOf(" ");
-                    if (jobIdEnds > -1) {
-                        jobId = jobId.substring(0, jobId.indexOf(" "));
-                    }
+         	   String jobId = getHadoopJobId(line);
+               if (jobId != null) {
                     sb.append(separator).append(jobId);
                     separator = ",";
                 }
@@ -292,6 +301,84 @@ public class PigMain extends LauncherMain {
             props.setProperty("hadoopJobs", sb.toString());
         }
         return props;
+    }
+    
+    protected static String getHadoopJobId(String line) {
+ 	   String jobId = null;
+        if (line != null) {
+            if (line.contains(JOB_ID_LOG_PREFIX)) {
+                int jobIdStarts = line.indexOf(JOB_ID_LOG_PREFIX) + JOB_ID_LOG_PREFIX.length();
+                jobId = line.substring(jobIdStarts);
+                int jobIdEnds = jobId.indexOf(" ");
+                if (jobIdEnds > -1) {
+                    jobId = jobId.substring(0, jobId.indexOf(" "));
+                }
+            }
+        } 
+        return jobId;
+    }
+    
+    private static class LogFileObserver extends Thread {
+
+    	private File logFile;
+    	private volatile boolean done = false;
+    	private ActionEventHandler eventHandler;
+    	
+    	public LogFileObserver(String logFilePath) {
+    		this.logFile = new File (logFilePath);
+    		this.eventHandler = new ActionEventHandler();
+    	}
+    	
+		@Override
+		public void run() {
+			System.out.println("LogFileObserver thread started");
+			// wait, until the log file appears
+			while (!logFile.exists() && !done) {
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			// start observing the log file
+			try {
+				observeLogFile();
+			} catch (IOException ioe) {
+				ioe.printStackTrace();
+			}
+			System.out.println("LogFileObserver thread stopped");
+		}
+		
+		protected void observeLogFile() throws IOException {
+			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(logFile)));
+			String line;
+			while (!done) {
+			    line = br.readLine();
+			    if (line == null) {
+			        try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+			    }
+			    else {
+			    	// we're only looking for new Hadoop job IDs at this point
+			        String hadoopId = getHadoopJobId(line);
+			        if (hadoopId != null) {
+			        	ActionEventHandler.LiteWorkflowActionEvent event = eventHandler.createWorkflowActionEvent();
+			        	event.setMessage(hadoopId);
+			        	event.setType(ActionEventHandler.LiteWorkflowActionEvent.TYPE_HADOOP_JOB_ID);
+			        	eventHandler.sendEvent(event);
+			        }
+			    }
+			}
+			br.close();
+		}
+		
+		public void finish() {
+			done = true;
+			eventHandler.finish();
+		}
     }
 
 }

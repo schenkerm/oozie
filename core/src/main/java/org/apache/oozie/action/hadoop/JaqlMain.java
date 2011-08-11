@@ -3,8 +3,10 @@ package org.apache.oozie.action.hadoop;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -169,6 +171,13 @@ public class JaqlMain extends LauncherMain {
         System.out.println();
         System.out.flush();
 
+        LogFileObserver lfo = null;
+        
+        if (ActionEventHandler.isEventHandlingEnabled()) {
+        	lfo = new LogFileObserver(logFile);
+        	lfo.start();
+        }
+        
         try {
             runJaqlJob(arguments.toArray(new String[arguments.size()]));
         }
@@ -178,14 +187,19 @@ public class JaqlMain extends LauncherMain {
                     throw ex;
                 }
             }
+        } finally {
+        	if (lfo != null) {
+        		lfo.finish();
+        		lfo.join();
+        	}
         }
-
+        
         System.out.println();
         System.out.println("<<< Invocation of Jaql command completed <<<");
         System.out.println();
 
         // harvesting and recording Hadoop Job IDs
-        Properties jobIds = getHadoopJobIds(logFile, JOB_ID_LOG_PREFIX);
+        Properties jobIds = getHadoopJobIds(logFile);
         File file = new File(System.getProperty("oozie.action.output.properties"));
         OutputStream os = new FileOutputStream(file);
         jobIds.store(os, "");
@@ -198,7 +212,7 @@ public class JaqlMain extends LauncherMain {
    //TODO: Jaql should provide a programmatic way of spitting out Hadoop jobs
    private static final String JOB_ID_LOG_PREFIX = "Running job: ";
 
-   public static Properties getHadoopJobIds(String logFile, String prefix) throws IOException {
+   public static Properties getHadoopJobIds(String logFile) throws IOException {
        Properties props = new Properties();
        StringBuffer sb = new StringBuffer(100);
        if (!new File(logFile).exists()) {
@@ -210,14 +224,10 @@ public class JaqlMain extends LauncherMain {
            String line = br.readLine();
            String separator = "";
            while (line != null) {
-               if (line.contains(prefix)) {
-                   int jobIdStarts = line.indexOf(prefix) + prefix.length();
-                   String jobId = line.substring(jobIdStarts).trim();
-
-                   if (jobId.startsWith("job_")) {
-                       sb.append(separator).append(jobId);
-                       separator = ",";
-                   }
+        	   String newJobId = getHadoopJobId(line);
+               if (newJobId != null) {
+                   sb.append(separator).append(newJobId);
+                   separator = ",";
                }
                line = br.readLine();
            }
@@ -226,8 +236,85 @@ public class JaqlMain extends LauncherMain {
        }
        return props;
    }
+   
+   protected static String getHadoopJobId(String line) {
+	   String jobId = null;
+       if (line != null) {
+           if (line.contains(JOB_ID_LOG_PREFIX)) {
+               int jobIdStarts = line.indexOf(JOB_ID_LOG_PREFIX) + JOB_ID_LOG_PREFIX.length();
+               String newJobId = line.substring(jobIdStarts).trim();
+               if (newJobId.startsWith("job_")) {
+            	   jobId = newJobId;
+               }
+           }
+       } return jobId;
+   }
 	
     protected void runJaqlJob(String[] args) throws Exception {
       JaqlShell.main(args);	    	
     }
+    
+    private static class LogFileObserver extends Thread {
+
+    	private File logFile;
+    	private volatile boolean done = false;
+    	private ActionEventHandler eventHandler;
+    	
+    	public LogFileObserver(String logFilePath) {
+    		this.logFile = new File (logFilePath);
+    		this.eventHandler = new ActionEventHandler();
+    	}
+    	
+		@Override
+		public void run() {
+			System.out.println("LogFileObserver thread started");
+			// wait, until the log file appears
+			while (!logFile.exists() && !done) {
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			// start observing the log file
+			try {
+				observeLogFile();
+			} catch (IOException ioe) {
+				ioe.printStackTrace();
+			}
+			System.out.println("LogFileObserver thread stopped");
+		}
+		
+		protected void observeLogFile() throws IOException {
+			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(logFile)));
+			String line;
+			while (!done) {
+			    line = br.readLine();
+			    if (line == null) {
+			        try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+			    }
+			    else {
+			    	// we're only looking for new Hadoop job IDs at this point
+			        String hadoopId = getHadoopJobId(line);
+			        if (hadoopId != null) {
+			        	ActionEventHandler.LiteWorkflowActionEvent event = eventHandler.createWorkflowActionEvent();
+			        	event.setMessage(hadoopId);
+			        	event.setType(ActionEventHandler.LiteWorkflowActionEvent.TYPE_HADOOP_JOB_ID);
+			        	eventHandler.sendEvent(event);
+			        }
+			    }
+			}
+			br.close();
+		}
+		
+		public void finish() {
+			done = true;
+			eventHandler.finish();
+		}
+    }
+    
 }

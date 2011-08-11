@@ -15,6 +15,7 @@
 package org.apache.oozie.client.rest;
 
 import org.apache.oozie.client.WorkflowAction;
+import org.apache.oozie.client.WorkflowActionEvent;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -33,7 +34,8 @@ import javax.persistence.*;
 @DiscriminatorColumn(name = "bean_type", discriminatorType = DiscriminatorType.STRING)
 
 public class JsonWorkflowAction implements WorkflowAction, JsonBean {
-    @Id
+
+	@Id
     private String id;
 
     @Basic
@@ -94,7 +96,11 @@ public class JsonWorkflowAction implements WorkflowAction, JsonBean {
     @Lob
     private String errorMessage = null;
 
+    @Transient
+    private List<? extends JsonWorkflowActionEvent> events;
+    
     public JsonWorkflowAction() {
+    	events = new ArrayList<JsonWorkflowActionEvent>();
     }
 
     public JsonWorkflowAction(JSONObject jsonObject) {
@@ -114,6 +120,7 @@ public class JsonWorkflowAction implements WorkflowAction, JsonBean {
         consoleUrl = (String) jsonObject.get(JsonTags.WORKFLOW_ACTION_CONSOLE_URL);
         errorCode = (String) jsonObject.get(JsonTags.WORKFLOW_ACTION_ERROR_CODE);
         errorMessage = (String) jsonObject.get(JsonTags.WORKFLOW_ACTION_ERROR_MESSAGE);
+        events = JsonWorkflowActionEvent.fromJSONArray((JSONArray) jsonObject.get(JsonTags.WORKFLOW_ACTION_EVENTS));
     }
 
     @SuppressWarnings("unchecked")
@@ -136,6 +143,7 @@ public class JsonWorkflowAction implements WorkflowAction, JsonBean {
         json.put(JsonTags.WORKFLOW_ACTION_CONSOLE_URL, consoleUrl);
         json.put(JsonTags.WORKFLOW_ACTION_ERROR_CODE, errorCode);
         json.put(JsonTags.WORKFLOW_ACTION_ERROR_MESSAGE, errorMessage);
+        json.put(JsonTags.WORKFLOW_ACTION_EVENTS, JsonWorkflowActionEvent.toJSONArray(events));
         return json;
     }
 
@@ -268,6 +276,16 @@ public class JsonWorkflowAction implements WorkflowAction, JsonBean {
         return MessageFormat.format("Action name[{0}] status[{1}]", getName(), getStatus());
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+	public List<WorkflowActionEvent> getEvents() {
+		return (List)events;
+	}
+
+    public void setEvents(List<? extends JsonWorkflowActionEvent> nodes) {
+        this.events = (nodes != null) ? nodes : new ArrayList<JsonWorkflowActionEvent>();
+    }
+    
     /**
      * Convert a nodes list into a JSONArray.
      *

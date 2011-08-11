@@ -24,6 +24,7 @@ import org.apache.oozie.client.OozieClient;
 import org.apache.oozie.command.wf.CompletedActionCommand;
 import org.apache.oozie.command.CommandException;
 import org.apache.oozie.command.Command;
+import org.apache.oozie.command.wf.ActionEventListCommand;
 import org.apache.oozie.command.wf.JobCommand;
 import org.apache.oozie.command.wf.JobsCommand;
 import org.apache.oozie.command.wf.KillCommand;
@@ -61,7 +62,8 @@ import java.io.IOException;
 public class DagEngine extends BaseEngine {
 
     private static final int HIGH_PRIORITY = 2;
-
+    private static final int NORMAL_PRIORITY = 1;
+    
     /**
      * Create a system Dag engine, with no user and no group.
      */
@@ -300,6 +302,18 @@ public class DagEngine extends BaseEngine {
         }
     }
 
+    /**
+     * Process a list of action events 
+     * 
+     * @param eventList - list of action events 
+     */
+    public void processActionEventList(ArrayList<WorkflowActionEventBean> eventList) {
+    	Command<Void, ?> command = new ActionEventListCommand(eventList, NORMAL_PRIORITY);
+    	 if (!Services.get().get(CallableQueueService.class).queue(command)) {
+             XLog.getLog(this.getClass()).warn(XLog.OPS, "queue is full or system is in SAFEMODE, ignoring event list");
+         }
+    }
+    
     /**
      * Return the info about a job.
      *

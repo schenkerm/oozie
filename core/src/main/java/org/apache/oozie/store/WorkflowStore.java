@@ -28,6 +28,7 @@ import javax.persistence.Query;
 
 import org.apache.oozie.ErrorCode;
 import org.apache.oozie.WorkflowActionBean;
+import org.apache.oozie.WorkflowActionEventBean;
 import org.apache.oozie.WorkflowJobBean;
 import org.apache.oozie.WorkflowsInfo;
 import org.apache.oozie.client.OozieClient;
@@ -221,6 +222,18 @@ public class WorkflowStore extends Store {
         });
     }
 
+    public void insertActionEventList(final ArrayList<WorkflowActionEventBean> eventList) throws StoreException {
+        ParamChecker.notNull(eventList, "WorkflowActionEventBean");
+        doOperation("insertActionEventList", new Callable<Void>() {
+            public Void call() throws SQLException, StoreException, WorkflowException {
+            	for (WorkflowActionEventBean wab : eventList) {
+            		entityManager.persist(wab);
+            	}
+                return null;
+            }
+        });
+    }
+    
     /**
      * Load the action data and returns a bean.
      *
@@ -255,8 +268,14 @@ public class WorkflowStore extends Store {
                 /*
                  * if (locking) return action; else
                  */
+                
+                WorkflowActionBean aa = getBeanForRunningAction(action);
+                // get the list of events for this action
+                List<WorkflowActionEventBean> events = getEventsForAction(aa.getId());
+                aa.setEvents(events);
+               
                 // return action;
-                return getBeanForRunningAction(action);
+                return aa;
             }
         });
         return action;
@@ -297,13 +316,18 @@ public class WorkflowStore extends Store {
                  */
                 WorkflowActionBean action = entityManager.find(WorkflowActionBean.class, id);
                 if (action != null) {
+                	// delete all events associated with this action
+                    Query q = entityManager.createNamedQuery("DELETE_EVENTS_FOR_ACTION");
+                    q.setParameter("actionId", action.getId());
+                    q.executeUpdate();
+                    // delete the action itself
                     entityManager.remove(action);
                 }
                 return null;
             }
         });
     }
-
+    
     /**
      * Loads all the actions for the given Workflow. Also locks all the actions if locking is true.
      *
@@ -336,6 +360,11 @@ public class WorkflowStore extends Store {
                                                                    actions = q.getResultList();
                                                                    for (WorkflowActionBean a : actions) {
                                                                        WorkflowActionBean aa = getBeanForRunningAction(a);
+
+                                                                       // get the list of events for this action
+                                                                       List<WorkflowActionEventBean> events = getEventsForAction(aa.getId());
+                                                                       aa.setEvents(events);
+                                                                       
                                                                        actionList.add(aa);
                                                                    }
                                                                }
@@ -352,6 +381,56 @@ public class WorkflowStore extends Store {
         return actions;
     }
 
+    
+    /**
+     * Loads all the actions for the given Workflow. Also locks all the actions if locking is true.
+     *
+     * @param wfId Workflow ID
+     * @param locking true if Actions are to be locked
+     * @return A List of WorkflowActionBean
+     * @throws StoreException
+     */
+    public List<WorkflowActionEventBean> getEventsForAction(final String actionId)
+            throws StoreException {
+        ParamChecker.notEmpty(actionId, "ActionID");
+        List<WorkflowActionEventBean> events = doOperation("getEventsForAction",
+                                                       new Callable<List<WorkflowActionEventBean>>() {
+                                                           public List<WorkflowActionEventBean> call() throws SQLException, StoreException, WorkflowException,
+                                                                   InterruptedException {
+                                                               List<WorkflowActionEventBean> events;
+                                                               List<WorkflowActionEventBean> eventList = new ArrayList<WorkflowActionEventBean>();
+                                                               try {
+                                                                   Query q = entityManager.createNamedQuery("GET_EVENTS_FOR_ACTION");
+
+                                                                   /*
+                                                                   * OpenJPAQuery oq = OpenJPAPersistence.cast(q);
+                                                                   * if (locking) { //
+                                                                   * q.setHint("openjpa.FetchPlan.ReadLockMode"
+                                                                   * ,"WRITE"); FetchPlan fetch = oq.getFetchPlan();
+                                                                   * fetch.setReadLockMode(LockModeType.WRITE);
+                                                                   * fetch.setLockTimeout(1000); // 1 seconds }
+                                                                   */
+                                                                   q.setParameter("actionId", actionId);
+                                                                   events = q.getResultList();
+                                                                   for (WorkflowActionEventBean e : events) {
+                                                                	   WorkflowActionEventBean ee = getBeanForActionEvent(e);
+                                                                       eventList.add(ee);
+                                                                   }
+                                                               }
+                                                               catch (IllegalStateException e) {
+                                                                   throw new StoreException(ErrorCode.E0601, e.getMessage(), e);
+                                                               }
+                                                               /*
+                                                               * if (locking) { return actions; } else {
+                                                               */
+                                                               return eventList;
+                                                               // }
+                                                           }
+                                                       });
+        return events;
+    }
+
+    
     /**
      * Loads given number of actions for the given Workflow. Also locks all the actions if locking is true.
      *
@@ -380,6 +459,11 @@ public class WorkflowStore extends Store {
                                                                    actions = q.getResultList();
                                                                    for (WorkflowActionBean a : actions) {
                                                                        WorkflowActionBean aa = getBeanForRunningAction(a);
+                                                                       
+                                                                       // get the list of events for this action
+                                                                       List<WorkflowActionEventBean> events = getEventsForAction(aa.getId());
+                                                                       aa.setEvents(events);
+
                                                                        actionList.add(aa);
                                                                    }
                                                                }
@@ -408,6 +492,11 @@ public class WorkflowStore extends Store {
                     Query q = entityManager.createNamedQuery("GET_PENDING_ACTIONS");
                     q.setParameter("pendingAge", ts);
                     actionList = q.getResultList();
+                    // get action events
+                    for (WorkflowActionBean action : actionList) {
+                    	List<WorkflowActionEventBean> events = getEventsForAction(action.getId());
+                    	action.setEvents(events);
+                    }
                 }
                 catch (IllegalStateException e) {
                     throw new StoreException(ErrorCode.E0601, e.getMessage(), e);
@@ -435,6 +524,11 @@ public class WorkflowStore extends Store {
                     Query q = entityManager.createNamedQuery("GET_RUNNING_ACTIONS");
                     q.setParameter("lastCheckTime", ts);
                     actions = q.getResultList();
+                    // get action events
+                    for (WorkflowActionBean action : actions) {
+                    	List<WorkflowActionEventBean> events = getEventsForAction(action.getId());
+                    	action.setEvents(events);
+                    }
                 }
                 catch (IllegalStateException e) {
                     throw new StoreException(ErrorCode.E0601, e.getMessage(), e);
@@ -462,6 +556,11 @@ public class WorkflowStore extends Store {
                             Query q = entityManager.createNamedQuery("GET_RETRY_MANUAL_ACTIONS");
                             q.setParameter("wfId", wfId);
                             actionList = q.getResultList();
+                            // get action events
+                            for (WorkflowActionBean action : actionList) {
+                            	List<WorkflowActionEventBean> events = getEventsForAction(action.getId());
+                            	action.setEvents(events);
+                            }
                         }
                         catch (IllegalStateException e) {
                             throw new StoreException(ErrorCode.E0601, e.getMessage(), e);
@@ -946,6 +1045,18 @@ public class WorkflowStore extends Store {
         return null;
     }
 
+    private WorkflowActionEventBean getBeanForActionEvent(WorkflowActionEventBean e) throws SQLException {
+        if (e != null) {
+        	WorkflowActionEventBean event = new WorkflowActionEventBean();
+            event.setActionId(e.getActionId());
+            event.setType(e.getType());
+            event.setTimestamp(e.getTimestamp());
+            event.setMessage(e.getMessage());
+            return event;
+        }
+        return null;
+    }
+    
     private void setWFQueryParameters(WorkflowJobBean wfBean, Query q) {
         q.setParameter("appName", wfBean.getAppName());
         q.setParameter("appPath", wfBean.getAppPath());

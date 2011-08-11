@@ -15,6 +15,7 @@
 package org.apache.oozie.client;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * Bean that represents a workflow action in a workflow job.
@@ -149,4 +150,6 @@ public interface WorkflowAction {
      * @return the error message of the action.
      */
     String getErrorMessage();
+    
+    List<WorkflowActionEvent> getEvents();
 }

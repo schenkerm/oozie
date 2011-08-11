@@ -49,10 +49,12 @@ import org.apache.oozie.client.CoordinatorJob;
 import org.apache.oozie.client.OozieClient;
 import org.apache.oozie.client.OozieClientException;
 import org.apache.oozie.client.WorkflowAction;
+import org.apache.oozie.client.WorkflowActionEvent;
 import org.apache.oozie.client.WorkflowJob;
 import org.apache.oozie.client.XOozieClient;
 import org.apache.oozie.client.OozieClient.SYSTEM_MODE;
 import org.apache.oozie.client.rest.JsonCoordinatorAction;
+import org.apache.oozie.client.rest.JsonUtils;
 import org.apache.oozie.client.rest.RestConstants;
 import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
@@ -742,7 +744,19 @@ public class OozieCLI {
         System.out.println("Started         : " + maskDate(action.getStartTime(), contains));
         System.out.println("Status          : " + action.getStatus());
         System.out.println("Ended           : " + maskDate(action.getEndTime(), contains));
+        
 
+        List<WorkflowActionEvent> events = action.getEvents();
+        if (events != null) {
+            System.out.println("Events          : ");
+            for (WorkflowActionEvent e : events) {
+            	Date timestamp = e.getTimestamp();
+            	String message = e.getMessage();
+            	String type = e.getType();
+            	System.out.println("    " + JsonUtils.formatDateRfc822(timestamp) + '|' + type + '|' + message);
+            }
+        }
+        
         System.out.println(RULER);
     }
 

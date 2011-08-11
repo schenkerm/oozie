@@ -299,12 +299,15 @@
                                     <include name="**/JsonCoordinatorJob.class" />
                                     <include name="**/JsonCoordinatorAction.class" />
                                     <include name="**/JsonSLAEvent.class" />
+									<include name="**/JsonWorkflowActionEvent.class" />
 
                                     <include name="**/WorkflowJobBean.class" />
                                     <include name="**/WorkflowActionBean.class" />
                                     <include name="**/CoordinatorJobBean.class" />
                                     <include name="**/CoordinatorActionBean.class" />
                                     <include name="**/SLAEventBean.class" />
+                                    <include name="**/WorkflowActionEventBean.class" />
+                                    
                                 </fileset>
                                 <openjpac>
                                     <classpath refid="cp" />

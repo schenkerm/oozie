@@ -507,6 +507,11 @@ public class LauncherMapper<K1, V1, K2, V2> implements Mapper<K1, V1, K2, V2>, R
         System.setProperty("oozie.action.conf.xml", new File(ACTION_CONF_XML).getAbsolutePath());
         System.setProperty("oozie.action.output.properties", new File(ACTION_OUTPUT_PROPS).getAbsolutePath());
         System.setProperty("oozie.action.newId.properties", new File(ACTION_NEW_ID_PROPS).getAbsolutePath());
+        
+        if ( getJobConf().get("oozie.action.event.callback.url") != null) {
+        	System.setProperty("oozie.action.event.callback.url", getJobConf().get("oozie.action.event.callback.url"));
+        	System.setProperty("oozie.action.event.send.interval", getJobConf().get("oozie.action.event.send.interval"));
+        }
     }
 
     public static String[] getMainArguments(Configuration conf) {

@@ -224,9 +224,24 @@ public abstract class IOUtils {
      * @return an absolute File to the created JAR file.
      * @throws java.io.IOException thrown if the JAR file could not be created.
      */
-    public static File createJar(File baseDir, String jarName, Class... classes) throws IOException {
+    public static File createJar(File baseDir, String jarName, Class<?>... classes) throws IOException {
         File classesDir = new File(baseDir, "classes");
-        for (Class clazz : classes) {
+        copyClasses(classesDir, classes);
+        File jar = new File(baseDir, jarName);
+        File jarDir = jar.getParentFile();
+        if (!jarDir.exists()) {
+            if (!jarDir.mkdirs()) {
+                throw new IOException(XLog.format("could not create dir [{0}]", jarDir));
+            }
+        }
+        JarOutputStream zos = new JarOutputStream(new FileOutputStream(jar), new Manifest());
+        zipDir(classesDir, "", zos);
+        return jar;
+    }
+    
+    private static void copyClasses(File classesDir, Class<?>... classes) throws IOException {
+    	for (Class<?> clazz : classes) {
+        	
             String classPath = clazz.getName().replace(".", "/") + ".class";
             String classFileName = classPath;
             if (classPath.lastIndexOf("/") > -1) {
@@ -242,16 +257,15 @@ public abstract class IOUtils {
             InputStream is = getResourceAsStream(classPath, -1);
             OutputStream os = new FileOutputStream(new File(dir, classFileName));
             copyStream(is, os);
+            
+            // copy inner classes as well
+        	Class<?> declaredClasses[] = clazz.getDeclaredClasses();
+        	if (declaredClasses.length > 0) {
+        		copyClasses(classesDir, declaredClasses);
+        	}
+        	
+        	//TODO: copy implicit classes as well!
         }
-        File jar = new File(baseDir, jarName);
-        File jarDir = jar.getParentFile();
-        if (!jarDir.exists()) {
-            if (!jarDir.mkdirs()) {
-                throw new IOException(XLog.format("could not create dir [{0}]", jarDir));
-            }
-        }
-        JarOutputStream zos = new JarOutputStream(new FileOutputStream(jar), new Manifest());
-        zipDir(classesDir, "", zos);
-        return jar;
     }
+    
 }

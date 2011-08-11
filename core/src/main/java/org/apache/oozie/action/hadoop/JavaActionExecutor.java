@@ -103,6 +103,7 @@ public class JavaActionExecutor extends ActionExecutor {
         classes.add(LauncherMapper.class);
         classes.add(LauncherSecurityManager.class);
         classes.add(LauncherException.class);
+        classes.add(ActionEventHandler.class);
         return classes;
     }
 
@@ -448,6 +449,13 @@ public class JavaActionExecutor extends ActionExecutor {
             // group to kill the jobs.
             launcherJobConf.set("mapreduce.job.acl-modify-job", context.getWorkflow().getGroup());
 
+            //TODO: check configuration, if action events are enabled
+            // set the Action event callback URL
+            String oozieBaseUrl = this.getOozieConf().get("oozie.base.url");
+            launcherJobConf.set("oozie.action.event.callback.url", oozieBaseUrl + "/v1/event");
+            //TODO: get the value from the configuration
+            launcherJobConf.set("oozie.action.event.send.interval","30");
+            
             return launcherJobConf;
         }
         catch (Exception ex) {

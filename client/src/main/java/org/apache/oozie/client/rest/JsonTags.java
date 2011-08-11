@@ -65,7 +65,7 @@ public interface JsonTags {
     public static final String WORKFLOW_ACTION_CONSOLE_URL = "consoleUrl";
     public static final String WORKFLOW_ACTION_ERROR_CODE = "errorCode";
     public static final String WORKFLOW_ACTION_ERROR_MESSAGE = "errorMessage";
-
+    public static final String WORKFLOW_ACTION_EVENTS = "events";
 
     public static final String COORDINATOR_JOB_ID = "coordJobId";
     public static final String COORDINATOR_JOB_NAME = "coordJobName";
@@ -142,5 +142,10 @@ public interface JsonTags {
     public static final Object COORD_JOB_TOTAL = "total";
     public static final Object COORD_JOB_OFFSET = "offset";
     public static final Object COORD_JOB_LEN = "len";
-
+    
+    public static final String WORKFLOW_ACTION_EVENT_ID = "id";
+    public static final String WORKFLOW_ACTION_EVENT_TYPE = "type";
+    public static final String WORKFLOW_ACTION_EVENT_MESSAGE = "message";
+    public static final String WORKFLOW_ACTION_EVENT_TIMESTAMP = "timestamp";
+    public static final String WORKFLOW_ACTION_EVENT_ACTION_ID = "actionId";
 }

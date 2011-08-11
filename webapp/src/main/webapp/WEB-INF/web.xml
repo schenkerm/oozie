@@ -87,6 +87,13 @@
         <load-on-startup>1</load-on-startup>
     </servlet>
 
+    <servlet>
+        <servlet-name>action-event</servlet-name>
+        <display-name>WS API for Aaction Events</display-name>
+        <servlet-class>org.apache.oozie.servlet.ActionEventListenerServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
 	<!-- servlet-mapping -->
     <servlet-mapping>
         <servlet-name>versions</servlet-name>
@@ -136,6 +143,11 @@
     <servlet-mapping>
         <servlet-name>sla-event</servlet-name>
         <url-pattern>/v1/sla/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>action-event</servlet-name>
+        <url-pattern>/v1/event/*</url-pattern>
     </servlet-mapping>
 
     <!-- welcome-file -->

@@ -20,10 +20,12 @@ package org.apache.oozie.action.hadoop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.ArrayList;
@@ -274,6 +276,13 @@ public class HiveMain extends LauncherMain {
         System.out.println();
         System.out.flush();
 
+        LogFileObserver lfo = null;
+        
+        if (ActionEventHandler.isEventHandlingEnabled()) {
+        	lfo = new LogFileObserver(logFile);
+        	lfo.start();
+        }
+        
         try {
             runHive(arguments.toArray(new String[arguments.size()]));
         }
@@ -283,12 +292,17 @@ public class HiveMain extends LauncherMain {
                     throw ex;
                 }
             }
+        } finally {
+        	if (lfo != null) {
+        		lfo.finish();
+        		lfo.join();
+        	}
         }
 
         System.out.println("\n<<< Invocation of Hive command completed <<<\n");
 
         // harvesting and recording Hadoop Job IDs
-        Properties jobIds = getHadoopJobIds(logFile, JOB_ID_LOG_PREFIX);
+        Properties jobIds = getHadoopJobIds(logFile);
         File file = new File(System.getProperty("oozie.action.output.properties"));
         OutputStream os = new FileOutputStream(file);
         jobIds.store(os, "");
@@ -334,7 +348,7 @@ public class HiveMain extends LauncherMain {
 
     private static final String JOB_ID_LOG_PREFIX = "Ended Job = ";
 
-    public static Properties getHadoopJobIds(String logFile, String prefix) throws IOException {
+    public static Properties getHadoopJobIds(String logFile) throws IOException {
         Properties props = new Properties();
         StringBuffer sb = new StringBuffer(100);
         if (!new File(logFile).exists()) {
@@ -346,9 +360,8 @@ public class HiveMain extends LauncherMain {
             String line = br.readLine();
             String separator = "";
             while (line != null) {
-                if (line.contains(prefix)) {
-                    int jobIdStarts = line.indexOf(prefix) + prefix.length();
-                    String jobId = line.substring(jobIdStarts).trim();
+          	   String jobId = getHadoopJobId(line);
+               if (jobId != null) {
                     sb.append(separator).append(jobId);
                     separator = ",";
                 }
@@ -358,6 +371,80 @@ public class HiveMain extends LauncherMain {
             props.setProperty("hadoopJobs", sb.toString());
         }
         return props;
+    }
+    
+    protected static String getHadoopJobId(String line) {
+  	   String jobId = null;
+         if (line != null) {
+             if (line.contains(JOB_ID_LOG_PREFIX)) {
+                 int jobIdStarts = line.indexOf(JOB_ID_LOG_PREFIX) + JOB_ID_LOG_PREFIX.length();
+                 jobId = line.substring(jobIdStarts).trim();
+             }
+         } return jobId;
+     }
+    
+    
+    private static class LogFileObserver extends Thread {
+
+    	private File logFile;
+    	private volatile boolean done = false;
+    	private ActionEventHandler eventHandler;
+    	
+    	public LogFileObserver(String logFilePath) {
+    		this.logFile = new File (logFilePath);
+    		this.eventHandler = new ActionEventHandler();
+    	}
+    	
+		@Override
+		public void run() {
+			System.out.println("LogFileObserver thread started");
+			// wait, until the log file appears
+			while (!logFile.exists() && !done) {
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			// start observing the log file
+			try {
+				observeLogFile();
+			} catch (IOException ioe) {
+				ioe.printStackTrace();
+			}
+			System.out.println("LogFileObserver thread stopped");
+		}
+		
+		protected void observeLogFile() throws IOException {
+			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(logFile)));
+			String line;
+			while (!done) {
+			    line = br.readLine();
+			    if (line == null) {
+			        try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+			    }
+			    else {
+			    	// we're only looking for new Hadoop job IDs at this point
+			        String hadoopId = getHadoopJobId(line);
+			        if (hadoopId != null) {
+			        	ActionEventHandler.LiteWorkflowActionEvent event = eventHandler.createWorkflowActionEvent();
+			        	event.setMessage(hadoopId);
+			        	event.setType(ActionEventHandler.LiteWorkflowActionEvent.TYPE_HADOOP_JOB_ID);
+			        	eventHandler.sendEvent(event);
+			        }
+			    }
+			}
+			br.close();
+		}
+		
+		public void finish() {
+			done = true;
+			eventHandler.finish();
+		}
     }
 
 }
